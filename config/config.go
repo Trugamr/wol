@@ -27,6 +27,8 @@ type Machine struct {
 	Mac string `koanf:"mac"`
 	// IP address of the machine (optional)
 	IP *string `koanf:"ip"`
+  // Schedule for automatic wakeup (optional)
+  Schedule *string `koanf:"schedule"`
 }
 
 // Server represents the server configuration

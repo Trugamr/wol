@@ -14,6 +14,7 @@ import (
 
 	probing "github.com/prometheus-community/pro-bing"
 	"github.com/spf13/cobra"
+  "github.com/robfig/cron/v3"
 	"github.com/trugamr/wol/config"
 )
 
@@ -36,6 +37,7 @@ var serveCmd = &cobra.Command{
 		mux.HandleFunc("POST /wake", handleWake)
 		mux.HandleFunc("GET /status", handleStatus)
 
+    handleSchedule()
 		log.Printf("Listening on %s", cfg.Server.Listen)
 		err := http.ListenAndServe(cfg.Server.Listen, mux)
 		if err != nil {
@@ -235,3 +237,42 @@ func isAddressReachable(ip net.IP) (bool, error) {
 
 	return true, nil
 }
+
+func handleSchedule() {
+  //Check config to see if there are any wakeups scheduled.
+  scheduleMachines := machinesWithSchedules()
+  //If there are scheduled wakeups, intialize and add a cron wakeup trigger for each machine. 
+  if (len(scheduleMachines) > 0) {
+    c := cron.New()
+    c.Start()
+    for _, machine := range scheduleMachines 	{ 
+      mac, err := getMacByName(machine.Name)
+	    if err != nil {
+        log.Printf("Error getting mac for machine: %v", err)
+		    return
+	    }
+
+      _, err = c.AddFunc(*machine.Schedule, func() { sendMagicPacket(mac)} )
+      if err != nil {
+        log.Printf("Error starting scheduler: %v ", err)
+      } 
+      }
+    }
+    
+
+}
+
+//Gets all machines that have a schedule
+func machinesWithSchedules() []config.Machine {
+  var scheduledMachines []config.Machine
+  for _, machine := range cfg.Machines {
+    if machine.Schedule != nil && *machine.Schedule != "" {
+      scheduledMachines = append(scheduledMachines, machine)
+    }
+  }
+  return scheduledMachines
+}
+
+
+
+

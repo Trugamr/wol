@@ -70,9 +70,12 @@ machines:
   - name: desktop
     mac: "00:11:22:33:44:55"
     ip: "192.168.1.100" # Optional, for status checking
+    schedule: "0 12 * * *" #Optional, to wake on cron schedule when running the serve command
   - name: server
     mac: "AA:BB:CC:DD:EE:FF"
     ip: "192.168.1.101" # Optional, for status checking
+    schedule: "0 0 * * 3" #Optional, to wake on cron schedule when running the serve command
+
 
 server:
   listen: ":7777" # Optional, defaults to :7777
@@ -109,6 +112,7 @@ command. It provides:
 - Real-time machine status monitoring (when IP is configured)
 - Version information
 - Links to documentation and support
+- Optionally scheduled machine wake up
 
 ## Building from Source
 
