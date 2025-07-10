@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/trugamr/wol/config"
 	"github.com/trugamr/wol/magicpacket"
 )
 
@@ -33,7 +34,7 @@ var sendCmd = &cobra.Command{
 		var mac net.HardwareAddr
 
 		// Retrieve mac address using one of the flags
-		switch true {
+		switch {
 		case cmd.Flags().Changed("mac"):
 			value, err := cmd.Flags().GetString("mac")
 			if err != nil {
@@ -52,7 +53,11 @@ var sendCmd = &cobra.Command{
 			}
 
 			// Find machine with the specified name
-			mac, err = getMacByName(name)
+			machine, err := getMachineByName(name)
+			if err != nil {
+				cobra.CheckErr(err)
+			}
+			mac, err = getMac(machine)
 			if err != nil {
 				cobra.CheckErr(err)
 			}
@@ -70,17 +75,22 @@ var sendCmd = &cobra.Command{
 	},
 }
 
-// getMacByName returns the MAC address of the machine with the specified name
-func getMacByName(name string) (net.HardwareAddr, error) {
+// getMachineByName returns the machine with the specified name
+func getMachineByName(name string) (*config.Machine, error) {
 	for _, machine := range cfg.Machines {
 		if strings.EqualFold(machine.Name, name) {
-			mac, err := net.ParseMAC(machine.Mac)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse MAC address: %w", err)
-			}
-			return mac, nil
+			return &machine, nil
 		}
 	}
 
 	return nil, fmt.Errorf("machine with name %q not found", name)
+}
+
+// getMac returns the MAC address of the specified machine
+func getMac(machine *config.Machine) (net.HardwareAddr, error) {
+	mac, err := net.ParseMAC(machine.Mac)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse MAC address: %w", err)
+	}
+	return mac, nil
 }

@@ -26,8 +26,34 @@ type Machine struct {
 	Name string `koanf:"name"`
 	// MAC address of the machine
 	Mac string `koanf:"mac"`
+	// Use HTTP instead of UDP
+	HTTP *HTTP `koanf:"http"`
 	// Hostname or IP address of the machine (optional)
 	IP *string `koanf:"ip"`
+}
+
+type WakeMethod int
+
+const (
+	WakeMethodUDP WakeMethod = iota
+	WakeMethodHTTP
+)
+
+func (m *Machine) WakeMethod() WakeMethod {
+	if m.HTTP != nil {
+		return WakeMethodHTTP
+	}
+	return WakeMethodUDP
+}
+
+// HTTP represents the configuration for waking a machine over HTTP
+type HTTP struct {
+	// Endpoint to send the HTTP request to
+	Endpoint string `koanf:"endpoint"`
+	// HTTP method to use (e.g. GET, POST)
+	Method string `koanf:"method"`
+	// Request body (optional)
+	Body string `koanf:"body"`
 }
 
 // Server represents the server configuration

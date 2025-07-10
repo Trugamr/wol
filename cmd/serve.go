@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,18 +97,62 @@ func consumeFlashMessage(w http.ResponseWriter, r *http.Request) string {
 
 func handleWake(w http.ResponseWriter, r *http.Request) {
 	machineName := r.FormValue("name")
-	mac, err := getMacByName(machineName)
+	machine, err := getMachineByName(machineName)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Sending magic packet to %s", mac)
-	mp := magicpacket.NewMagicPacket(mac)
-	if err := mp.Broadcast(); err != nil {
-		log.Printf("Error sending magic packet: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	switch machine.WakeMethod() {
+	case config.WakeMethodHTTP:
+		if machine.HTTP == nil {
+			message := fmt.Sprintf("WakeMethod was determined to be HTTP, but no HTTP configuration was found for machine %s", machine.Name)
+			log.Print(message)
+			http.Error(w, message, http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Sending %s request to %s", machine.HTTP.Method, machine.HTTP.Endpoint)
+		var body *strings.Reader
+		if machine.HTTP.Body != "" {
+			body = strings.NewReader(machine.HTTP.Body)
+			log.Printf("Request body: %s", machine.HTTP.Body)
+		}
+		req, err := http.NewRequest(machine.HTTP.Method, machine.HTTP.Endpoint, body)
+		if err != nil {
+			log.Printf("Error constructing HTTP request: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		if body != nil {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+		
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("Error sending HTTP request: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		message := fmt.Sprintf("HTTP request returned status code %d", resp.StatusCode)
+		log.Print(message)
+		if resp.StatusCode != http.StatusOK {
+			http.Error(w, message, http.StatusInternalServerError)
+			return
+		}
+	default:
+		mac, err := getMac(machine)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("Sending magic packet to %s", mac)
+		mp := magicpacket.NewMagicPacket(mac)
+		if err := mp.Broadcast(); err != nil {
+			log.Printf("Error sending magic packet: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}		
 	}
 
 	// Set flash message cookie
