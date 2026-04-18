@@ -33,6 +33,7 @@ var serveCmd = &cobra.Command{
 
 		mux.HandleFunc("GET /{$}", handleIndex)
 		mux.HandleFunc("POST /wake", handleWake)
+		mux.HandleFunc("GET /wake", handleWake)
 		mux.HandleFunc("GET /status", handleStatus)
 
 		log.Printf("Listening on %s", cfg.Server.Listen)
