@@ -179,10 +179,10 @@ server:
 `)
 
 	c := NewConfig()
-	sources, err := c.Load(file)
+	err := c.Load(file)
 	require.NoError(t, err)
 	assert.Equal(t, ":4242", c.Server.Listen)
-	assert.Equal(t, []string{file}, sources)
+	assert.Equal(t, []string{file}, c.Sources())
 }
 
 func TestLoadExplicitMissing(t *testing.T) {
@@ -191,6 +191,6 @@ func TestLoadExplicitMissing(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "nope.yaml")
 
 	c := NewConfig()
-	_, err := c.Load(missing)
+	err := c.Load(missing)
 	require.Error(t, err)
 }

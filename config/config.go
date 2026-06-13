@@ -49,6 +49,10 @@ type Config struct {
 	Server Server `koanf:"server"`
 	// Ping represents the ping configuration
 	Ping Ping `koanf:"ping"`
+
+	// sources records which inputs contributed to the loaded config, in load
+	// order. It is unexported so koanf's reflection-based providers ignore it.
+	sources []string
 }
 
 // NewConfig creates a new Config instance
@@ -56,8 +60,14 @@ func NewConfig() *Config {
 	return &Config{}
 }
 
-// Load loads the configuration and returns the sources that contributed to it,
-// in load order (later values override earlier ones).
+// Sources returns the inputs that contributed to the last Load, in load order
+// (e.g. config file paths and the WOL_CONFIG environment variable).
+func (c *Config) Sources() []string {
+	return c.sources
+}
+
+// Load loads the configuration. The contributing sources are recorded and can be
+// retrieved with Sources (in load order, later values overriding earlier ones).
 //
 // If path is non-empty it is used as the sole config file and must exist (a
 // missing file is an error). An explicit --config file is authoritative: the
@@ -70,25 +80,31 @@ func NewConfig() *Config {
 //   - ./config.yaml
 //
 // In all cases the built-in defaults are the lowest-priority layer.
-func (c *Config) Load(path string) ([]string, error) {
+func (c *Config) Load(path string) error {
 	// An explicit config file replaces the default search locations and must exist.
-	if path != "" {
-		return c.load([]string{path}, true)
+	paths := []string{path}
+	explicit := true
+
+	if path == "" {
+		explicit = false
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
+		// Order here matters as later values will override earlier ones
+		paths = []string{
+			filepath.Join("/etc", "wol", configFilename),
+			filepath.Join(home, ".wol", configFilename),
+			filepath.Join(".", configFilename),
+		}
 	}
 
-	home, err := os.UserHomeDir()
+	sources, err := c.load(paths, explicit)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
+		return err
 	}
-
-	// Order here matters as later values will override earlier ones
-	paths := []string{
-		filepath.Join("/etc", "wol", configFilename),
-		filepath.Join(home, ".wol", configFilename),
-		filepath.Join(".", configFilename),
-	}
-
-	return c.load(paths, false)
+	c.sources = sources
+	return nil
 }
 
 // load reads configuration into c from the given file paths (in precedence order,

@@ -32,8 +32,8 @@ var serveCmd = &cobra.Command{
 	Long:  "Serve a web interface that lists all the configured machines and allows you to wake them up",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(configSources) > 0 {
-			log.Printf("Loaded config from %s", strings.Join(configSources, ", "))
+		if sources := cfg.Sources(); len(sources) > 0 {
+			log.Printf("Loaded config from %s", strings.Join(sources, ", "))
 		} else {
 			log.Print("No config file found; using built-in defaults")
 		}

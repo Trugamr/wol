@@ -12,9 +12,6 @@ var (
 	// cfgFile is the explicit config path from --config; empty means search the
 	// default locations.
 	cfgFile string
-	// configSources records which sources contributed to the loaded config, so
-	// commands can report them (see serve).
-	configSources []string
 )
 
 func init() {
@@ -26,12 +23,7 @@ var rootCmd = &cobra.Command{
 	Short: "Discover and wake up devices on the network",
 	Long:  "Discover devices on the network and wake them by sending magic Wake-On-LAN packets",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		sources, err := cfg.Load(cfgFile)
-		if err != nil {
-			return err
-		}
-		configSources = sources
-		return nil
+		return cfg.Load(cfgFile)
 	},
 }
 
