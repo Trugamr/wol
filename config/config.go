@@ -2,8 +2,11 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
@@ -27,6 +30,29 @@ type Machine struct {
 	Mac string `koanf:"mac"`
 	// Hostname or IP address of the machine (optional)
 	IP *string `koanf:"ip"`
+	// Broadcast optionally overrides the global broadcast target for this
+	// machine. Zero-value fields inherit the global setting. This is what lets a
+	// machine on a different subnet/VLAN use its own directed broadcast address.
+	Broadcast *Broadcast `koanf:"broadcast"`
+}
+
+// Broadcast is the destination a magic packet is sent to. It is reused for the
+// global default and for per-machine overrides; on an override, a zero-value
+// field (empty Address or zero Port) inherits the global value.
+type Broadcast struct {
+	// Address is the broadcast address to send the magic packet to. Use the
+	// subnet-directed broadcast (e.g. 192.168.1.255) to reliably reach a device
+	// on a specific subnet from a multi-homed host, rather than the limited
+	// broadcast 255.255.255.255.
+	Address string `koanf:"address"`
+	// Port is the UDP port to send the magic packet to (typically 9, sometimes 7).
+	Port int `koanf:"port"`
+}
+
+// Addr returns the host:port string the magic packet is dialed to,
+// e.g. "192.168.1.255:9".
+func (b Broadcast) Addr() string {
+	return net.JoinHostPort(b.Address, strconv.Itoa(b.Port))
 }
 
 // Server represents the server configuration
@@ -49,6 +75,8 @@ type Config struct {
 	Server Server `koanf:"server"`
 	// Ping represents the ping configuration
 	Ping Ping `koanf:"ping"`
+	// Broadcast represents the default broadcast target for magic packets.
+	Broadcast Broadcast `koanf:"broadcast"`
 
 	// sources records which inputs contributed to the loaded config, in load
 	// order. It is unexported so koanf's reflection-based providers ignore it.
@@ -64,6 +92,33 @@ func NewConfig() *Config {
 // (e.g. config file paths and the WOL_CONFIG environment variable).
 func (c *Config) Sources() []string {
 	return c.sources
+}
+
+// MachineByName returns the configured machine with the given name
+// (case-insensitive).
+func (c *Config) MachineByName(name string) (Machine, error) {
+	for _, m := range c.Machines {
+		if strings.EqualFold(m.Name, name) {
+			return m, nil
+		}
+	}
+
+	return Machine{}, fmt.Errorf("machine with name %q not found", name)
+}
+
+// BroadcastFor returns the effective broadcast target for a machine: the global
+// broadcast setting with any non-zero per-machine override fields applied on top.
+func (c *Config) BroadcastFor(m Machine) Broadcast {
+	b := c.Broadcast
+	if m.Broadcast != nil {
+		if m.Broadcast.Address != "" {
+			b.Address = m.Broadcast.Address
+		}
+		if m.Broadcast.Port != 0 {
+			b.Port = m.Broadcast.Port
+		}
+	}
+	return b
 }
 
 // Load loads the configuration. The contributing sources are recorded and can be
@@ -131,6 +186,10 @@ func (c *Config) load(paths []string, explicit bool) ([]string, error) {
 		},
 		Ping: Ping{
 			Privileged: false,
+		},
+		Broadcast: Broadcast{
+			Address: "255.255.255.255",
+			Port:    9,
 		},
 	}
 	if err := k.Load(structs.Provider(defaults, koanfTag), nil); err != nil {
