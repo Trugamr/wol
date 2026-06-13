@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/trugamr/wol/config"
 	"github.com/trugamr/wol/magicpacket"
 )
 
@@ -52,7 +53,7 @@ var sendCmd = &cobra.Command{
 			}
 
 			// Find machine with the specified name
-			mac, err = getMacByName(name)
+			mac, err = getMacByName(cfg.Machines, name)
 			if err != nil {
 				cobra.CheckErr(err)
 			}
@@ -71,8 +72,8 @@ var sendCmd = &cobra.Command{
 }
 
 // getMacByName returns the MAC address of the machine with the specified name
-func getMacByName(name string) (net.HardwareAddr, error) {
-	for _, machine := range cfg.Machines {
+func getMacByName(machines []config.Machine, name string) (net.HardwareAddr, error) {
+	for _, machine := range machines {
 		if strings.EqualFold(machine.Name, name) {
 			mac, err := net.ParseMAC(machine.Mac)
 			if err != nil {
