@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"bytes"
@@ -31,7 +31,7 @@ func TestHandleIndexRendersMachines(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
-	newServer(cfg, nil, nil).routes().ServeHTTP(rec, req)
+	New(cfg, nil, nil, BuildInfo{}).Routes().ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), "alpha")
@@ -44,14 +44,14 @@ func TestHandleWakeSuccess(t *testing.T) {
 	}
 
 	var gotMac net.HardwareAddr
-	wake := func(mac net.HardwareAddr) error {
+	waker := func(mac net.HardwareAddr) error {
 		gotMac = mac
 		return nil
 	}
 	req := httptest.NewRequest(http.MethodPost, "/wake", strings.NewReader("name=alpha"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
-	newServer(cfg, nil, wake).routes().ServeHTTP(rec, req)
+	New(cfg, nil, waker, BuildInfo{}).Routes().ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusSeeOther, rec.Code)
 	assert.Equal(t, "/", rec.Header().Get("Location"))
@@ -78,14 +78,14 @@ func TestHandleWakeMachineNotFound(t *testing.T) {
 	}
 
 	called := false
-	wake := func(mac net.HardwareAddr) error {
+	waker := func(mac net.HardwareAddr) error {
 		called = true
 		return nil
 	}
 	req := httptest.NewRequest(http.MethodPost, "/wake", strings.NewReader("name=ghost"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
-	newServer(cfg, nil, wake).routes().ServeHTTP(rec, req)
+	New(cfg, nil, waker, BuildInfo{}).Routes().ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.False(t, called, "wake must not be called for an unknown machine")
@@ -104,7 +104,7 @@ func TestWriteMachinesStatusFrame(t *testing.T) {
 		"10.0.0.2": false,
 	}}
 	var buf bytes.Buffer
-	require.NoError(t, newServer(cfg, pinger, nil).writeMachinesStatus(&buf))
+	require.NoError(t, New(cfg, pinger, nil, BuildInfo{}).writeMachinesStatus(&buf))
 
 	out := buf.String()
 	require.True(t, strings.HasPrefix(out, "data: "), "frame must start with an SSE data field")
@@ -118,35 +118,4 @@ func TestWriteMachinesStatusFrame(t *testing.T) {
 		"off":     "offline",
 		"unknown": "unknown",
 	}, statuses)
-}
-
-func TestGetMacByName(t *testing.T) {
-	machines := []config.Machine{
-		{Name: "alpha", Mac: "01:02:03:04:05:06"},
-		{Name: "badmac", Mac: "not-a-mac"},
-	}
-
-	tests := []struct {
-		name      string
-		lookup    string
-		wantMAC   string
-		wantError bool
-	}{
-		{name: "exact match", lookup: "alpha", wantMAC: "01:02:03:04:05:06"},
-		{name: "case-insensitive match", lookup: "ALPHA", wantMAC: "01:02:03:04:05:06"},
-		{name: "not found", lookup: "ghost", wantError: true},
-		{name: "invalid mac", lookup: "badmac", wantError: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mac, err := getMacByName(machines, tt.lookup)
-			if tt.wantError {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantMAC, mac.String())
-		})
-	}
 }

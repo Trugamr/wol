@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/trugamr/wol/config"
-	"github.com/trugamr/wol/magicpacket"
+	"github.com/trugamr/wol/wake"
 )
 
 func init() {
@@ -53,7 +51,7 @@ var sendCmd = &cobra.Command{
 			}
 
 			// Find machine with the specified name
-			mac, err = getMacByName(cfg.Machines, name)
+			mac, err = wake.ByName(cfg.Machines, name)
 			if err != nil {
 				cobra.CheckErr(err)
 			}
@@ -62,26 +60,10 @@ var sendCmd = &cobra.Command{
 		}
 
 		log.Printf("Sending magic packet to %s", mac)
-		mp := magicpacket.NewMagicPacket(mac)
-		if err := mp.Broadcast(); err != nil {
+		if err := wake.Broadcast(mac); err != nil {
 			cobra.CheckErr(err)
 		}
 
 		log.Printf("Magic packet sent")
 	},
-}
-
-// getMacByName returns the MAC address of the machine with the specified name
-func getMacByName(machines []config.Machine, name string) (net.HardwareAddr, error) {
-	for _, machine := range machines {
-		if strings.EqualFold(machine.Name, name) {
-			mac, err := net.ParseMAC(machine.Mac)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse MAC address: %w", err)
-			}
-			return mac, nil
-		}
-	}
-
-	return nil, fmt.Errorf("machine with name %q not found", name)
 }

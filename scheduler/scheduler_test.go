@@ -1,4 +1,4 @@
-package cmd
+package scheduler
 
 import (
 	"net"
@@ -71,20 +71,20 @@ func TestWakeJob(t *testing.T) {
 	require.NoError(t, err)
 
 	var gotMac net.HardwareAddr
-	wake := func(mac net.HardwareAddr) error {
+	waker := func(mac net.HardwareAddr) error {
 		gotMac = mac
 		return nil
 	}
 
-	wakeJob(wake, "nas", want)()
+	wakeJob(waker, "nas", want)()
 
 	assert.Equal(t, want, gotMac)
 }
 
-func TestNewSchedulerInvalidConfig(t *testing.T) {
+func TestNewInvalidConfig(t *testing.T) {
 	machines := []config.Machine{{Name: "nas", Mac: "01:02:03:04:05:06"}}
 
-	_, err := newScheduler(machines, []config.Schedule{
+	_, err := New(machines, []config.Schedule{
 		{Name: "ghost-wake", Machine: "ghost", Cron: "@daily"},
 	}, func(net.HardwareAddr) error { return nil })
 	require.Error(t, err)
