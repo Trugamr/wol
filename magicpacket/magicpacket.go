@@ -45,7 +45,7 @@ func (p *MagicPacket) WriteTo(w io.Writer) (int64, error) {
 }
 
 // Broadcast sends the magic packet to the broadcast address
-func (p *MagicPacket) Broadcast() error {
+func (p *MagicPacket) Broadcast() (err error) {
 	// TODO: broadcast to more common ports and addresses?
 	addr := &net.UDPAddr{
 		IP:   net.IPv4bcast,
@@ -55,7 +55,12 @@ func (p *MagicPacket) Broadcast() error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	// Surface a close error, but don't let it mask a write error.
+	defer func() {
+		if cerr := conn.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	_, err = p.WriteTo(conn)
 	return err
