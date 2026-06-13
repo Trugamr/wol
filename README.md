@@ -79,6 +79,11 @@ reverse proxy with basic auth, https etc.
 > container. Host networking is recommended for Wake-on-LAN packets to work
 > properly on your local network.
 
+Image tags:
+
+- `latest` and `X.Y.Z` track named releases (`X.Y.Z` pins a specific version).
+- `edge` tracks the latest commit on `main`, for trying unreleased changes.
+
 ## Configuration
 
 Create a `config.yaml` file in one of these locations (in order of precedence):
@@ -199,6 +204,15 @@ To make this change persistent, add it to your `/etc/sysctl.conf` file.
 You can also try experimenting with setting `ping.privileged: true` in your configuration as an alternative solution.
 
 For more details, see [issue #12](https://github.com/Trugamr/wol/issues/12).
+
+## Releases
+
+Releases are handled by [release-please](https://github.com/googleapis/release-please).
+Every push to `main` updates a "release" pull request that bumps the version and
+the changelog based on the [Conventional Commits](https://www.conventionalcommits.org/)
+in the history. Merging that pull request tags the release and triggers GoReleaser
+to publish the binaries and container images. Nothing is released until the release
+pull request is merged.
 
 ## License
 

@@ -1,0 +1,47 @@
+name: edge
+
+# Publish a rolling container image for the latest main commit. This is not a
+# named release; it lets people test main without waiting for a version to be cut.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write # Needed to push images to ghcr.io
+
+concurrency:
+  group: edge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push edge image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          # amd64 + arm64 cross-compile cleanly and quickly; armv7 stays covered
+          # by named releases via GoReleaser.
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/trugamr/wol:edge
+            ghcr.io/trugamr/wol:main-${{ github.sha }}
+          build-args: |
+            VERSION=edge
+            COMMIT=${{ github.sha }}
+            DATE=${{ github.event.head_commit.timestamp }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
