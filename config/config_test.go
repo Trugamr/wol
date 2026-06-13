@@ -142,6 +142,24 @@ machines:
 	assert.Equal(t, "192.168.20.255:7", c.BroadcastFor(c.Machines[0]).Addr())
 }
 
+func TestLoadGlobalBroadcastPartialKeepsDefaultPort(t *testing.T) {
+	t.Setenv(configEnvVar, "")
+
+	// Only the address is set globally; the port must fall back to the default 9
+	// (relies on config layers merging per key rather than replacing the block).
+	file := writeConfig(t, `
+broadcast:
+  address: "192.168.0.255"
+`)
+
+	c := NewConfig()
+	_, err := c.load([]string{file}, false)
+	require.NoError(t, err)
+
+	assert.Equal(t, "192.168.0.255", c.Broadcast.Address)
+	assert.Equal(t, 9, c.Broadcast.Port)
+}
+
 func TestLoadFilePrecedence(t *testing.T) {
 	t.Setenv(configEnvVar, "")
 
