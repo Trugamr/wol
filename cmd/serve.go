@@ -163,7 +163,7 @@ func (s *server) machineStatus(machine config.Machine) (string, error) {
 
 	reachable, err := s.pinger.Reachable(*machine.IP)
 	if err != nil {
-		fmt.Println(err)
+		// Don't log here; machinesStatus logs the error once per machine.
 		return "unknown", err
 	}
 	if reachable {
@@ -261,7 +261,9 @@ func newProbingPinger(privileged bool) *probingPinger {
 func (p *probingPinger) Reachable(addr string) (bool, error) {
 	pinger, err := probing.NewPinger(addr)
 	if err != nil {
-		return false, fmt.Errorf("error creating pinger: %w", err)
+		// addr couldn't be resolved (e.g. an off machine's hostname). Treat as
+		// unreachable instead of erroring, so the status poll doesn't log it each tick.
+		return false, nil
 	}
 	// Set privileged mode based on config
 	pinger.SetPrivileged(p.privileged)
