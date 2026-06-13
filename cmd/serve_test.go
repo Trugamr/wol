@@ -40,12 +40,23 @@ func TestHandleIndexRendersMachines(t *testing.T) {
 func TestHandleWakeSuccess(t *testing.T) {
 	const macStr = "01:02:03:04:05:06"
 	cfg := &config.Config{
-		Machines: []config.Machine{{Name: "alpha", Mac: macStr}},
+		// The machine overrides only the broadcast address, so the port should be
+		// inherited from the global default.
+		Broadcast: config.Broadcast{Address: "255.255.255.255", Port: 9},
+		Machines: []config.Machine{{
+			Name:      "alpha",
+			Mac:       macStr,
+			Broadcast: &config.Broadcast{Address: "192.168.1.255"},
+		}},
 	}
 
-	var gotMac net.HardwareAddr
-	wake := func(mac net.HardwareAddr) error {
+	var (
+		gotMac  net.HardwareAddr
+		gotAddr string
+	)
+	wake := func(mac net.HardwareAddr, addr string) error {
 		gotMac = mac
+		gotAddr = addr
 		return nil
 	}
 	req := httptest.NewRequest(http.MethodPost, "/wake", strings.NewReader("name=alpha"))
@@ -60,6 +71,10 @@ func TestHandleWakeSuccess(t *testing.T) {
 	want, err := net.ParseMAC(macStr)
 	require.NoError(t, err)
 	assert.Equal(t, want, gotMac)
+
+	// The per-machine broadcast override was resolved (address overridden, port
+	// inherited from the global default) and passed to the wake seam.
+	assert.Equal(t, "192.168.1.255:9", gotAddr)
 
 	// A flash message cookie naming the machine is set.
 	var flash *http.Cookie
@@ -78,7 +93,7 @@ func TestHandleWakeMachineNotFound(t *testing.T) {
 	}
 
 	called := false
-	wake := func(mac net.HardwareAddr) error {
+	wake := func(mac net.HardwareAddr, addr string) error {
 		called = true
 		return nil
 	}
@@ -118,35 +133,4 @@ func TestWriteMachinesStatusFrame(t *testing.T) {
 		"off":     "offline",
 		"unknown": "unknown",
 	}, statuses)
-}
-
-func TestGetMacByName(t *testing.T) {
-	machines := []config.Machine{
-		{Name: "alpha", Mac: "01:02:03:04:05:06"},
-		{Name: "badmac", Mac: "not-a-mac"},
-	}
-
-	tests := []struct {
-		name      string
-		lookup    string
-		wantMAC   string
-		wantError bool
-	}{
-		{name: "exact match", lookup: "alpha", wantMAC: "01:02:03:04:05:06"},
-		{name: "case-insensitive match", lookup: "ALPHA", wantMAC: "01:02:03:04:05:06"},
-		{name: "not found", lookup: "ghost", wantError: true},
-		{name: "invalid mac", lookup: "badmac", wantError: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mac, err := getMacByName(machines, tt.lookup)
-			if tt.wantError {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantMAC, mac.String())
-		})
-	}
 }

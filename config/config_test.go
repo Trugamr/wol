@@ -27,8 +27,137 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, ":7777", c.Server.Listen)
 	assert.False(t, c.Ping.Privileged)
 	assert.Empty(t, c.Machines)
+	// The broadcast target defaults to the limited broadcast on port 9.
+	assert.Equal(t, "255.255.255.255", c.Broadcast.Address)
+	assert.Equal(t, 9, c.Broadcast.Port)
 	// Defaults alone are not a config "source".
 	assert.Empty(t, sources)
+}
+
+func TestBroadcastForResolution(t *testing.T) {
+	c := &Config{Broadcast: Broadcast{Address: "255.255.255.255", Port: 9}}
+
+	tests := []struct {
+		name    string
+		machine Machine
+		want    Broadcast
+	}{
+		{
+			name:    "no override inherits global",
+			machine: Machine{Name: "a"},
+			want:    Broadcast{Address: "255.255.255.255", Port: 9},
+		},
+		{
+			name:    "full override",
+			machine: Machine{Name: "b", Broadcast: &Broadcast{Address: "192.168.1.255", Port: 7}},
+			want:    Broadcast{Address: "192.168.1.255", Port: 7},
+		},
+		{
+			name:    "address-only override inherits port",
+			machine: Machine{Name: "c", Broadcast: &Broadcast{Address: "192.168.20.255"}},
+			want:    Broadcast{Address: "192.168.20.255", Port: 9},
+		},
+		{
+			name:    "port-only override inherits address",
+			machine: Machine{Name: "d", Broadcast: &Broadcast{Port: 7}},
+			want:    Broadcast{Address: "255.255.255.255", Port: 7},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := c.BroadcastFor(tt.machine)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBroadcastAddr(t *testing.T) {
+	assert.Equal(t, "192.168.1.255:9", Broadcast{Address: "192.168.1.255", Port: 9}.Addr())
+}
+
+func TestMachineByName(t *testing.T) {
+	c := &Config{Machines: []Machine{
+		{Name: "alpha", Mac: "01:02:03:04:05:06"},
+		{Name: "beta", Mac: "0a:0b:0c:0d:0e:0f"},
+	}}
+
+	tests := []struct {
+		name      string
+		lookup    string
+		wantName  string
+		wantError bool
+	}{
+		{name: "exact match", lookup: "alpha", wantName: "alpha"},
+		{name: "case-insensitive match", lookup: "ALPHA", wantName: "alpha"},
+		{name: "not found", lookup: "ghost", wantError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			machine, err := c.MachineByName(tt.lookup)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantName, machine.Name)
+		})
+	}
+}
+
+func TestMachineHardwareAddr(t *testing.T) {
+	mac, err := Machine{Mac: "01:02:03:04:05:06"}.HardwareAddr()
+	require.NoError(t, err)
+	assert.Equal(t, "01:02:03:04:05:06", mac.String())
+
+	_, err = Machine{Mac: "not-a-mac"}.HardwareAddr()
+	require.Error(t, err)
+}
+
+func TestLoadBroadcastFromFile(t *testing.T) {
+	t.Setenv(configEnvVar, "")
+
+	file := writeConfig(t, `
+broadcast:
+  address: "192.168.0.255"
+  port: 7
+machines:
+  - name: alpha
+    mac: "01:02:03:04:05:06"
+    broadcast:
+      address: "192.168.20.255"
+`)
+
+	c := NewConfig()
+	_, err := c.load([]string{file}, false)
+	require.NoError(t, err)
+
+	// Global broadcast comes from the file.
+	assert.Equal(t, "192.168.0.255", c.Broadcast.Address)
+	assert.Equal(t, 7, c.Broadcast.Port)
+
+	// The per-machine override sets only the address, inheriting the global port.
+	require.Len(t, c.Machines, 1)
+	assert.Equal(t, "192.168.20.255:7", c.BroadcastFor(c.Machines[0]).Addr())
+}
+
+func TestLoadGlobalBroadcastPartialKeepsDefaultPort(t *testing.T) {
+	t.Setenv(configEnvVar, "")
+
+	// Only the address is set globally; the port must fall back to the default 9
+	// (relies on config layers merging per key rather than replacing the block).
+	file := writeConfig(t, `
+broadcast:
+  address: "192.168.0.255"
+`)
+
+	c := NewConfig()
+	_, err := c.load([]string{file}, false)
+	require.NoError(t, err)
+
+	assert.Equal(t, "192.168.0.255", c.Broadcast.Address)
+	assert.Equal(t, 9, c.Broadcast.Port)
 }
 
 func TestLoadFilePrecedence(t *testing.T) {

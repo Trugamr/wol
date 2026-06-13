@@ -3,8 +3,19 @@ machines:
     mac: 00:00:00:00:00:01
   - name: laptop
     mac: 00:00:00:00:00:02
+    # Per-machine override: useful when this machine lives on a different
+    # subnet/VLAN. Unset fields (here, port) inherit the global broadcast below.
+    broadcast:
+      address: 192.168.1.255
 server:
   listen: 0.0.0.0:7777
+# Where magic packets are sent. Defaults to 255.255.255.255:9.
+# On a multi-homed host the limited broadcast 255.255.255.255 may leave the wrong
+# interface; use the subnet-directed broadcast (e.g. 192.168.1.255) of the network
+# your device is on so the packet is routed out the correct interface.
+broadcast:
+  address: 255.255.255.255
+  port: 9
 # Check: https://github.com/prometheus-community/pro-bing?tab=readme-ov-file#supported-operating-systems
 ping:
   privileged: false
