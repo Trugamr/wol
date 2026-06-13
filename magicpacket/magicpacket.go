@@ -1,6 +1,18 @@
 package magicpacket
 
-import "net"
+import (
+	"io"
+	"net"
+)
+
+const (
+	// A magic packet is a 6-byte 0xFF sync stream followed by the MAC repeated 16 times.
+	packetSize     = 102
+	syncStreamSize = 6
+	macRepeatCount = 16
+
+	broadcastPort = 9
+)
 
 // MagicPacket represents a wake-on-LAN packet
 type MagicPacket struct {
@@ -13,24 +25,31 @@ func NewMagicPacket(macAddress net.HardwareAddr) *MagicPacket {
 	return &MagicPacket{MacAddress: macAddress}
 }
 
-// Broadcast sends the magic packet to the broadcast address
-func (p *MagicPacket) Broadcast() error {
-	// Build the actual packet
-	packet := make([]byte, 102)
-	// Set the synchronization stream (first 6 bytes are 0xFF)
-	for i := 0; i < 6; i++ {
+// Bytes returns the raw magic packet payload.
+func (p *MagicPacket) Bytes() []byte {
+	packet := make([]byte, packetSize)
+	for i := 0; i < syncStreamSize; i++ {
 		packet[i] = 0xFF
 	}
-	// Copy the MAC address 16 times into the packet
-	for i := 1; i <= 16; i++ {
+	for i := 1; i <= macRepeatCount; i++ {
 		copy(packet[i*6:], p.MacAddress)
 	}
+	return packet
+}
 
-	// Broadcast the packet
-	// TODO: Broadcast to more common ports and addresses?
+// WriteTo writes the packet to w. It implements io.WriterTo so the send path can
+// be tested against an in-memory writer instead of the network.
+func (p *MagicPacket) WriteTo(w io.Writer) (int64, error) {
+	n, err := w.Write(p.Bytes())
+	return int64(n), err
+}
+
+// Broadcast sends the magic packet to the broadcast address
+func (p *MagicPacket) Broadcast() error {
+	// TODO: broadcast to more common ports and addresses?
 	addr := &net.UDPAddr{
 		IP:   net.IPv4bcast,
-		Port: 9,
+		Port: broadcastPort,
 	}
 	conn, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
@@ -38,6 +57,6 @@ func (p *MagicPacket) Broadcast() error {
 	}
 	defer conn.Close()
 
-	_, err = conn.Write(packet)
+	_, err = p.WriteTo(conn)
 	return err
 }

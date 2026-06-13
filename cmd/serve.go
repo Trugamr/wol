@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -29,21 +31,52 @@ var serveCmd = &cobra.Command{
 	Long:  "Serve a web interface that lists all the configured machines and allows you to wake them up",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		mux := http.NewServeMux()
-
-		mux.HandleFunc("GET /{$}", handleIndex)
-		mux.HandleFunc("POST /wake", handleWake)
-		mux.HandleFunc("GET /status", handleStatus)
+		handler := newServer(cfg, newProbingPinger(cfg.Ping.Privileged), broadcastWake).routes()
 
 		log.Printf("Listening on %s", cfg.Server.Listen)
-		err := http.ListenAndServe(cfg.Server.Listen, mux)
+		err := http.ListenAndServe(cfg.Server.Listen, handler)
 		if err != nil {
 			cobra.CheckErr(err)
 		}
 	},
 }
 
-func handleIndex(w http.ResponseWriter, r *http.Request) {
+// Pinger reports whether a network address is currently reachable.
+type Pinger interface {
+	Reachable(addr string) (bool, error)
+}
+
+// waker sends a wake-on-LAN magic packet to the given MAC address.
+type waker func(mac net.HardwareAddr) error
+
+// broadcastWake is the production waker: it broadcasts a real magic packet.
+func broadcastWake(mac net.HardwareAddr) error {
+	return magicpacket.NewMagicPacket(mac).Broadcast()
+}
+
+// server holds the dependencies for the web handlers. Injecting them (rather
+// than reaching for package globals) lets tests substitute fakes for the pinger
+// and wake action, so handlers can be exercised without real ICMP or UDP traffic.
+type server struct {
+	cfg    *config.Config
+	pinger Pinger
+	wake   waker
+}
+
+func newServer(cfg *config.Config, pinger Pinger, wake waker) *server {
+	return &server{cfg: cfg, pinger: pinger, wake: wake}
+}
+
+// routes registers all HTTP routes and returns the handler.
+func (s *server) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", s.handleIndex)
+	mux.HandleFunc("POST /wake", s.handleWake)
+	mux.HandleFunc("GET /status", s.handleStatus)
+	return mux
+}
+
+func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	// Parse the template
 	index, err := template.ParseFS(templates, "templates/index.html")
 	if err != nil {
@@ -54,7 +87,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	// Execute the template
 	data := map[string]interface{}{
-		"Machines":     cfg.Machines,
+		"Machines":     s.cfg.Machines,
 		"Version":      version,
 		"Commit":       commit,
 		"Date":         date,
@@ -94,17 +127,16 @@ func consumeFlashMessage(w http.ResponseWriter, r *http.Request) string {
 	return ""
 }
 
-func handleWake(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleWake(w http.ResponseWriter, r *http.Request) {
 	machineName := r.FormValue("name")
-	mac, err := getMacByName(machineName)
+	mac, err := getMacByName(s.cfg.Machines, machineName)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	log.Printf("Sending magic packet to %s", mac)
-	mp := magicpacket.NewMagicPacket(mac)
-	if err := mp.Broadcast(); err != nil {
+	if err := s.wake(mac); err != nil {
 		log.Printf("Error sending magic packet: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -116,14 +148,15 @@ func handleWake(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// getMachineStatus returns the status of a machine
-func getMachineStatus(machine config.Machine) (string, error) {
+// machineStatus returns the status of a single machine.
+func (s *server) machineStatus(machine config.Machine) (string, error) {
 	if machine.IP == nil {
 		return "unknown", nil
 	}
 
-	reachable, err := isAddressReachable(*machine.IP)
+	reachable, err := s.pinger.Reachable(*machine.IP)
 	if err != nil {
+		fmt.Println(err)
 		return "unknown", err
 	}
 	if reachable {
@@ -133,17 +166,17 @@ func getMachineStatus(machine config.Machine) (string, error) {
 	return "offline", nil
 }
 
-// getMachinesStatus returns a map of machine names to their statuses concurrently
-func getMachinesStatus() map[string]string {
+// machinesStatus returns a map of machine names to their statuses concurrently.
+func (s *server) machinesStatus() map[string]string {
 	var mu sync.Mutex
 	statuses := make(map[string]string)
 	var wg sync.WaitGroup
 
-	for _, machine := range cfg.Machines {
+	for _, machine := range s.cfg.Machines {
 		wg.Add(1)
 		go func(machine config.Machine) {
 			defer wg.Done()
-			status, err := getMachineStatus(machine)
+			status, err := s.machineStatus(machine)
 			if err != nil {
 				log.Printf("Error getting status for machine %s: %v", machine.Name, err)
 				return
@@ -160,31 +193,40 @@ func getMachinesStatus() map[string]string {
 	return statuses
 }
 
-func handleStatus(w http.ResponseWriter, r *http.Request) {
+// writeMachinesStatus writes a single SSE frame with the current status of all
+// machines to w, flushing if w supports it. Extracted from the streaming loop so
+// the frame can be tested without running the loop.
+func (s *server) writeMachinesStatus(w io.Writer) error {
+	statuses := s.machinesStatus()
+	data, err := json.Marshal(statuses)
+	if err != nil {
+		return fmt.Errorf("error marshaling status: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+		return fmt.Errorf("error writing status: %w", err)
+	}
+
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	return nil
+}
+
+func (s *server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// Sends the current status of all machines
-	sendMachinesStatus := func() {
-		statuses := getMachinesStatus()
-		data, err := json.Marshal(statuses)
-		if err != nil {
-			log.Printf("Error marshaling status: %v", err)
-			return
+	send := func() {
+		if err := s.writeMachinesStatus(w); err != nil {
+			log.Print(err)
 		}
-
-		_, err = fmt.Fprintf(w, "data: %s\n\n", data)
-		if err != nil {
-			log.Printf("Error writing status: %v", err)
-			return
-		}
-
-		w.(http.Flusher).Flush()
 	}
 
 	// Sends initial status
-	sendMachinesStatus()
+	send()
 
 	// Send status updates every few seconds
 	ticker := time.NewTicker(5 * time.Second)
@@ -195,18 +237,27 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-ticker.C:
-			sendMachinesStatus()
+			send()
 		}
 	}
 }
 
-func isAddressReachable(addr string) (bool, error) {
+// probingPinger is the production Pinger, backed by pro-bing.
+type probingPinger struct {
+	privileged bool
+}
+
+func newProbingPinger(privileged bool) *probingPinger {
+	return &probingPinger{privileged: privileged}
+}
+
+func (p *probingPinger) Reachable(addr string) (bool, error) {
 	pinger, err := probing.NewPinger(addr)
 	if err != nil {
-		return false, fmt.Errorf("error creating pinger: %v", err)
+		return false, fmt.Errorf("error creating pinger: %w", err)
 	}
 	// Set privileged mode based on config
-	pinger.SetPrivileged(cfg.Ping.Privileged)
+	pinger.SetPrivileged(p.privileged)
 
 	// We only want to ping once and wait 2 seconds for a response
 	pinger.Timeout = 2 * time.Second
@@ -214,14 +265,9 @@ func isAddressReachable(addr string) (bool, error) {
 
 	err = pinger.Run()
 	if err != nil {
-		return false, fmt.Errorf("error pinging: %v", err)
+		return false, fmt.Errorf("error pinging: %w", err)
 	}
 
 	// If we receive even a single packet, the address is reachable
-	stats := pinger.Statistics()
-	if stats.PacketsRecv == 0 {
-		return false, nil
-	}
-
-	return true, nil
+	return pinger.Statistics().PacketsRecv > 0, nil
 }
