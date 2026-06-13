@@ -95,9 +95,8 @@ wol serve --config /etc/wol/config.yaml
 
 An explicit `--config` file is authoritative: it must exist (wol exits with an
 error if it doesn't), and the default search locations above and the `WOL_CONFIG`
-environment variable are ignored. This is handy for systemd units, e.g.
-`ExecStart=wol serve --config /etc/wol/config.yaml`. On startup `serve` logs which
-config source it loaded.
+environment variable are ignored. On startup `serve` logs which config source it
+loaded.
 
 Alternatively, you can provide the configuration via the `WOL_CONFIG` environment variable:
 
