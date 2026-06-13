@@ -39,7 +39,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/trugamr/wol:edge
-            ghcr.io/trugamr/wol:main-${{ github.sha }}
           build-args: |
             VERSION=edge
             COMMIT=${{ github.sha }}
