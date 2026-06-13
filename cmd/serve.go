@@ -143,9 +143,9 @@ func (s *server) handleWake(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mac, err := net.ParseMAC(machine.Mac)
+	mac, err := machine.HardwareAddr()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to parse MAC address: %v", err), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

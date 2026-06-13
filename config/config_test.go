@@ -106,6 +106,15 @@ func TestMachineByName(t *testing.T) {
 	}
 }
 
+func TestMachineHardwareAddr(t *testing.T) {
+	mac, err := Machine{Mac: "01:02:03:04:05:06"}.HardwareAddr()
+	require.NoError(t, err)
+	assert.Equal(t, "01:02:03:04:05:06", mac.String())
+
+	_, err = Machine{Mac: "not-a-mac"}.HardwareAddr()
+	require.Error(t, err)
+}
+
 func TestLoadBroadcastFromFile(t *testing.T) {
 	t.Setenv(configEnvVar, "")
 

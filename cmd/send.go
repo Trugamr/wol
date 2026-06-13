@@ -61,9 +61,9 @@ var sendCmd = &cobra.Command{
 				cobra.CheckErr(err)
 			}
 
-			mac, err = net.ParseMAC(machine.Mac)
+			mac, err = machine.HardwareAddr()
 			if err != nil {
-				cobra.CheckErr(fmt.Errorf("failed to parse MAC address: %w", err))
+				cobra.CheckErr(err)
 			}
 			broadcast = cfg.BroadcastFor(machine)
 		default:

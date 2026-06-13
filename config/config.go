@@ -36,6 +36,15 @@ type Machine struct {
 	Broadcast *Broadcast `koanf:"broadcast"`
 }
 
+// HardwareAddr parses and returns the machine's MAC address.
+func (m Machine) HardwareAddr() (net.HardwareAddr, error) {
+	mac, err := net.ParseMAC(m.Mac)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse MAC address: %w", err)
+	}
+	return mac, nil
+}
+
 // Broadcast is the destination a magic packet is sent to. It is reused for the
 // global default and for per-machine overrides; on an override, a zero-value
 // field (empty Address or zero Port) inherits the global value.
