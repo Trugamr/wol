@@ -41,6 +41,19 @@ type Ping struct {
 	Privileged bool `koanf:"privileged"`
 }
 
+// Schedule represents an automatic cron wake-up for a configured machine.
+type Schedule struct {
+	// Name is an optional label used in log output. When empty the machine
+	// name is used instead.
+	Name string `koanf:"name"`
+	// Machine is the name of a configured machine to wake (required).
+	Machine string `koanf:"machine"`
+	// Cron is the schedule expression, e.g. "0 2 * * 6" (required). It is
+	// evaluated in the server's local time and supports the standard five
+	// fields as well as descriptors like @daily and @every.
+	Cron string `koanf:"cron"`
+}
+
 // Config represents the configuration for the application
 type Config struct {
 	// Machines represents the list of machines to wake up
@@ -49,6 +62,9 @@ type Config struct {
 	Server Server `koanf:"server"`
 	// Ping represents the ping configuration
 	Ping Ping `koanf:"ping"`
+	// Schedules represents optional cron wake-ups run by the serve command.
+	// When empty, scheduling is disabled.
+	Schedules []Schedule `koanf:"schedules"`
 
 	// sources records which inputs contributed to the loaded config, in load
 	// order. It is unexported so koanf's reflection-based providers ignore it.

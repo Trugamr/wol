@@ -8,3 +8,9 @@ server:
 # Check: https://github.com/prometheus-community/pro-bing?tab=readme-ov-file#supported-operating-systems
 ping:
   privileged: false
+# Optional cron wake-ups, run by the `serve` command. Each schedule wakes a
+# machine (by name) on a cron schedule evaluated in the server's local time.
+# schedules:
+#   - name: weekend-backup # Optional label, shown in logs
+#     machine: desktop     # Must match a machine name above
+#     cron: "0 2 * * 6"    # Saturday 02:00; also supports @daily, @every 1h, etc.

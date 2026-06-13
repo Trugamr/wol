@@ -11,6 +11,7 @@ network. Features both CLI commands and a web interface.
 - Configure multiple machines with names for easy access
 - List configured machines
 - Web interface for easy wake-up
+- Scheduled wake-ups on a cron schedule
 - Docker support
 
 ## Installation
@@ -131,7 +132,34 @@ server:
 
 ping:
   privileged: false # Optional, set to true if you need privileged ping
+
+schedules: # Optional, cron wake-ups run by `wol serve`
+  - name: weekend-backup # Optional label, shown in logs
+    machine: server # Must match a machine name above
+    cron: "0 2 * * 6" # Saturday 02:00
 ```
+
+### Scheduled wake-ups
+
+The optional `schedules` section makes `wol serve` wake machines automatically on
+a cron schedule. Omit it (or leave it empty) and scheduling is disabled — `serve`
+behaves exactly as before.
+
+Each schedule has:
+
+- `machine` (required) — the name of a machine defined under `machines`.
+- `cron` (required) — when to wake it. Standard five-field cron expressions
+  (`minute hour day-of-month month day-of-week`) are supported, as are the
+  `@hourly`, `@daily`, `@weekly`, `@monthly` and `@every 1h30m` descriptors.
+- `name` (optional) — a label used in log output; defaults to the machine name.
+
+Cron expressions are evaluated in the **server's local time**. When running in a
+container, set the `TZ` environment variable (e.g. `TZ=America/New_York`) to
+control the timezone.
+
+Schedules are validated when `serve` starts: a schedule that references an unknown
+machine or carries an invalid cron expression makes `wol serve` exit with an error,
+so misconfiguration is caught immediately rather than silently never firing.
 
 ## Usage
 

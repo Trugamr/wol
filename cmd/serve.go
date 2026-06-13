@@ -38,6 +38,15 @@ var serveCmd = &cobra.Command{
 			log.Print("No config file found; using built-in defaults")
 		}
 
+		// Start cron wake-ups when configured; a misconfigured schedule
+		// (unknown machine or invalid cron) aborts serve before it listens.
+		if len(cfg.Schedules) > 0 {
+			sched, err := newScheduler(cfg.Machines, cfg.Schedules, broadcastWake)
+			cobra.CheckErr(err)
+			sched.start()
+			log.Printf("Started %d scheduled wake-up(s)", len(cfg.Schedules))
+		}
+
 		handler := newServer(cfg, newProbingPinger(cfg.Ping.Privileged), broadcastWake).routes()
 
 		log.Printf("Listening on %s", cfg.Server.Listen)
