@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +32,12 @@ var serveCmd = &cobra.Command{
 	Long:  "Serve a web interface that lists all the configured machines and allows you to wake them up",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		if sources := cfg.Sources(); len(sources) > 0 {
+			log.Printf("Loaded config from %s", strings.Join(sources, ", "))
+		} else {
+			log.Print("No config file found; using built-in defaults")
+		}
+
 		handler := newServer(cfg, newProbingPinger(cfg.Ping.Privileged), broadcastWake).routes()
 
 		log.Printf("Listening on %s", cfg.Server.Listen)

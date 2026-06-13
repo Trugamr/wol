@@ -87,6 +87,17 @@ Create a `config.yaml` file in one of these locations (in order of precedence):
 - `~/.wol/config.yaml` (home directory)
 - `/etc/wol/config.yaml` (system-wide)
 
+To load a config file from an arbitrary path, pass `-c`/`--config`:
+
+```sh
+wol serve --config /etc/wol/config.yaml
+```
+
+An explicit `--config` file is authoritative: it must exist (wol exits with an
+error if it doesn't), and the default search locations above and the `WOL_CONFIG`
+environment variable are ignored. On startup `serve` logs which config source it
+loaded.
+
 Alternatively, you can provide the configuration via the `WOL_CONFIG` environment variable:
 
 ```sh
@@ -138,6 +149,9 @@ wol send --mac "00:11:22:33:44:55"
 
 # Start the web interface
 wol serve
+
+# Start the web interface with an explicit config file
+wol serve --config /etc/wol/config.yaml
 
 # Show version information
 wol version
