@@ -154,15 +154,13 @@ func (c *Config) load(paths []string, explicit bool) ([]string, error) {
 		sources = append(sources, path)
 	}
 
-	// An explicit --config file is authoritative and used on its own; WOL_CONFIG
-	// only applies when discovering configuration automatically.
-	if !explicit {
-		if ec := os.Getenv(configEnvVar); ec != "" {
-			if err := k.Load(rawbytes.Provider([]byte(ec)), yaml.Parser()); err != nil {
-				return nil, fmt.Errorf("failed to load config from %s: %w", configEnvVar, err)
-			}
-			sources = append(sources, configEnvVar+" environment variable")
+	// WOL_CONFIG overrides the discovered files; an explicit --config file is
+	// authoritative, so the env var is ignored in that mode.
+	if ec := os.Getenv(configEnvVar); !explicit && ec != "" {
+		if err := k.Load(rawbytes.Provider([]byte(ec)), yaml.Parser()); err != nil {
+			return nil, fmt.Errorf("failed to load config from %s: %w", configEnvVar, err)
 		}
+		sources = append(sources, configEnvVar+" environment variable")
 	}
 
 	if err := k.Unmarshal("", c); err != nil {
