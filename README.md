@@ -1,4 +1,8 @@
-# wol 🦭
+<p align="center">
+  <img src="assets/images/logo.png" alt="wol logo" width="96">
+</p>
+
+<h1 align="center">wol</h1>
 
 A CLI tool to send Wake-On-LAN (WOL) magic packets to wake up devices on your
 network. Features both CLI commands and a web interface.
