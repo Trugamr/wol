@@ -102,10 +102,10 @@ docker_manifests:
       - ghcr.io/trugamr/wol:latest-arm64
       - ghcr.io/trugamr/wol:latest-armv7
 
+# release-please owns the changelog and the GitHub Release notes, so GoReleaser
+# only needs to attach the build artifacts to the release it already created.
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^Merge pull request"
+  disable: true
+
+release:
+  mode: append

@@ -1,22 +1,44 @@
-name: goreleaser
+name: release
 
+# Releases are driven by release-please. On every push to main it maintains a
+# "release X.Y.Z" PR built from the conventional commits. Merging that PR creates
+# the tag and GitHub Release, which gates the goreleaser job below.
+#
+# Both jobs live in one workflow on purpose: a tag pushed by the default
+# GITHUB_TOKEN does not trigger other workflows, so a separate tag-triggered
+# workflow would never fire without a PAT. Running goreleaser in the same run
+# that release-please created the release sidesteps that.
 on:
   push:
-    # run only against tags
-    tags:
-      - "*"
-
-permissions:
-  contents: write
-  packages: write # Add permission for publishing packages
+    branches: [main]
 
 jobs:
-  goreleaser:
+  release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  goreleaser:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write # Add permission for publishing packages
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
           fetch-depth: 0
       - name: Set up Go
         uses: actions/setup-go@v6
