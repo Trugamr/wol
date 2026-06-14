@@ -1,331 +1,520 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦭</text></svg>">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#f5f8fd"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#0e1626"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/static/favicon-32.png"
+    />
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
     <title>wol</title>
     <style>
+      :root {
+        color-scheme: light;
+        --bg-grad-1: #f5f8fd;
+        --bg-grad-2: #eaf0f9;
+        --bg-glow: transparent;
+        --surface: #ffffff;
+        --text: #16203a;
+        --text-muted: #5b6b8c;
+        --border: #e6ecf8;
+        --divider: #cdd7e8;
+        --accent: #2f6fe0;
+        --accent-hover: #1f5cc9;
+        --accent-soft: rgba(74, 138, 237, 0.12);
+        --online: #16a34a;
+        --offline: #ef4444;
+        --unknown: #9aa6bd;
+        --radius: 14px;
+        --radius-sm: 10px;
+      }
+
+      @media (prefers-color-scheme: dark) {
         :root {
-            --bg-color: #ffffff;
-            --text-color: #333333;
-            --border-color: #e0e0e0;
-            --accent-color: #2563eb;
-            --hover-color: #1d4ed8;
-            --card-bg: #f8fafc;
-            --shadow-color: rgba(0, 0, 0, 0.05);
+          color-scheme: dark;
+          --bg-grad-1: #0e1626;
+          --bg-grad-2: #090e1a;
+          --bg-glow: rgba(74, 138, 237, 0.22);
+          --surface: #161f33;
+          --text: #eaf0fb;
+          --text-muted: #93a1c0;
+          --border: #243150;
+          --divider: #2a3a57;
+          --accent: #4a8ced;
+          --accent-hover: #6aa3f3;
+          --accent-soft: rgba(74, 138, 237, 0.18);
+          --online: #34d27b;
+          --offline: #f87171;
+          --unknown: #6b7796;
         }
+      }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-color: #111827;
-                --text-color: #f3f4f6;
-                --border-color: #1f2937;
-                --accent-color: #3b82f6;
-                --hover-color: #60a5fa;
-                --card-bg: #1e293b;
-                --shadow-color: rgba(0, 0, 0, 0.25);
-            }
-        }
-        
-        html, body {
-            margin: 0;
-            padding: 0;
-            min-height: 100%;
-        }
-        
-        .page {
-            font-family: monospace;
-            background: var(--bg-color);
-            color: var(--text-color);
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem;
-            min-height: 100dvh;
-            display: flex;
-            flex-direction: column;
-            box-sizing: border-box;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
+      * {
+        box-sizing: border-box;
+      }
 
-        .page__content {
-            flex: 1 0 auto;
-        }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
 
-        .page__title {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-            color: var(--accent-color);
-        }
+      body {
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(
+            1100px 540px at 50% -10%,
+            var(--bg-glow),
+            transparent 60%
+          ),
+          linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2));
+        background-attachment: fixed;
+        min-height: 100dvh;
+        -webkit-font-smoothing: antialiased;
+      }
 
-        .page__subtitle {
-            font-size: 1.15rem;
-            margin-bottom: 2rem;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1rem;
-            color: var(--text-color);
-            opacity: 0.8;
-        }
+      .mono {
+        font-family:
+          ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      }
 
-        .section__heading {
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
-            color: var(--text-color);
-            font-weight: bold;
-        }
+      .page {
+        max-width: 940px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 2.5rem;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+      }
 
-        .section__subtitle {
-            color: var(--text-color);
-            opacity: 0.8;
-            margin-top: -0.5rem;
-            margin-bottom: 1.5rem;
-            font-size: 0.9rem;
-        }
+      .masthead {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.25rem 0 1.75rem;
+      }
 
-        .machines {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1rem;
-            padding: 0;
-            list-style: none;
-        }
+      .masthead__logo {
+        width: 52px;
+        height: 52px;
+        border-radius: var(--radius);
+      }
 
-        .machine {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            align-items: center;
-            padding: 1rem;
-            border: 1px solid var(--border-color);
-            background: var(--card-bg);
-            border-radius: 12px;
-            transition: box-shadow 0.2s ease;
-        }
+      .masthead__text {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
 
-        .machine:hover {
-            box-shadow: 0 2px 4px var(--shadow-color);
-        }
+      .masthead__title {
+        font-size: 1.55rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
 
-        .machine__info {
-            display: grid;
-            gap: 0.5rem;
-        }
+      .masthead__subtitle {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
 
-        .machine__name {
-            font-weight: bold;
-            font-size: 1.05rem;  
-        }
+      /* Flash — soft tinted toast. Renders from the flash cookie; the only
+         animation in the page, so the post-wake reload stays calm. */
+      .flash {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: var(--accent-soft);
+        color: var(--text);
+        padding: 0.85rem 1rem;
+        border-radius: var(--radius-sm);
+        margin-bottom: 1.5rem;
+        animation: flashIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
 
-        .machine__mac {
-            color: var(--text-color);
-            opacity: 0.7;
-            font-size: 0.9rem;
-        }
+      .flash__icon {
+        flex: none;
+        width: 34px;
+        height: 34px;
+        border-radius: var(--radius-sm);
+        display: grid;
+        place-items: center;
+        background: var(--accent);
+        color: #fff;
+      }
 
-        .machine__wake-button {
-            background: var(--accent-color);
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            cursor: pointer;
-            font-family: monospace;
-            font-weight: bold;
-            text-transform: uppercase;
-            border-radius: 6px;
-            transition: background-color 0.2s ease;
-        }
+      .flash__text {
+        font-size: 0.92rem;
+      }
 
-        .machine__wake-button:hover {
-            background: var(--hover-color);
-        }
+      .section {
+        flex: 1 0 auto;
+      }
 
-        .machines--empty {
-            color: var(--text-color);
-            text-align: center;
-            padding: 3rem 2rem;
-            border: 2px dashed var(--border-color);
-            background: var(--card-bg);
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-        }
+      .section__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        margin: 0.5rem 0 1.25rem;
+      }
 
-        .machines--empty__icon {
-            font-size: 3rem;
-            color: var(--accent-color);
-            opacity: 0.8;
-        }
+      .section__heading {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin: 0;
+      }
 
-        .machines--empty__text {
-            font-size: 1.1rem;
-            margin: 0;
-        }
+      .section__count {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+      }
 
-        .machines--empty__help {
-            font-size: 0.9rem;
-            opacity: 0.8;
-            max-width: 400px;
-            line-height: 1.4;
-        }
+      .machines {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+        gap: 1rem;
+        padding: 0;
+        margin: 0;
+        list-style: none;
+      }
 
-        .footer {
-            margin-top: auto;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-color);
-            text-align: center;
-            font-size: 0.9rem;
-            color: var(--text-color);
-            opacity: 0.8;
-        }
+      .machine {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.1rem 1.2rem;
+      }
 
-        .footer__links {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-bottom: 0.5rem;
-        }
+      .machine__info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-width: 0;
+      }
 
-        .footer__link {
-            color: var(--accent-color);
-            text-decoration: none;
-        }
+      .machine__name {
+        display: inline-block;
+        vertical-align: middle;
+        max-width: calc(100% - 1.3rem);
+        font-weight: 700;
+        font-size: 1.02rem;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
 
-        .footer__link:hover {
-            text-decoration: underline;
-        }
+      .machine__mac {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        letter-spacing: 0.02em;
+      }
 
-        .footer__version {
-            font-size: 0.8rem;
-        }
+      /* vertical-align:middle aligns the dot to the text's optical center (its x-height
+         midpoint), which flex centering misses — a flex-centered dot reads as too low. */
+      .machine__status {
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 0.5rem;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--unknown);
+      }
 
-        .footer__credit {
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
-        }
+      .machine__status[data-status="online"] {
+        background: var(--online);
+      }
 
-        .footer__ascii {
-            color: var(--accent-color);
-            font-weight: bold;
-        }
+      .machine__status[data-status="offline"] {
+        background: var(--offline);
+      }
 
-        .machine__status {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
+      .wake-form {
+        margin-left: auto;
+      }
 
-        .machine__status[data-status="unknown"] {
-            background-color: #9ca3af;
-        }
+      .wake {
+        flex: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 0.82rem;
+        letter-spacing: 0.03em;
+        color: #fff;
+        background: var(--accent);
+        padding: 0.6rem 1.15rem;
+        border-radius: var(--radius-sm);
+        transition: background 0.18s ease;
+      }
 
-        .machine__status[data-status="online"] {
-            background-color: #22c55e;
-        }
+      .wake:hover {
+        background: var(--accent-hover);
+      }
 
-        .machine__status[data-status="offline"] {
-            background-color: #ef4444;
-        }
+      .wake:focus-visible {
+        outline: 3px solid var(--accent-soft);
+        outline-offset: 2px;
+      }
 
-        .machine__header {
-            display: flex;
-            align-items: center;
-        }
+      .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.85rem;
+        padding: 3.5rem 2rem;
+        background: var(--surface);
+        border: 2px dashed var(--border);
+        border-radius: var(--radius);
+      }
 
-        .flash-message {
-            background-color: var(--accent-color);
-            color: white;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 6px;
-            animation: slideIn 0.3s ease-out;
-        }
+      .empty__icon {
+        width: 64px;
+        height: 64px;
+        border-radius: var(--radius);
+        display: grid;
+        place-items: center;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
 
-        @keyframes slideIn {
-            from {
-                transform: translateY(-1rem);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+      .empty__icon svg {
+        width: 32px;
+        height: 32px;
+      }
+
+      .empty__title {
+        font-weight: 700;
+        font-size: 1.1rem;
+      }
+
+      .empty__help {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        max-width: 380px;
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      .footer {
+        margin-top: 2.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--divider);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .footer__links {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .footer__link {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        padding: 0.35rem 0.7rem;
+        border-radius: 8px;
+        transition:
+          color 0.2s,
+          background 0.2s;
+      }
+
+      .footer__link:hover {
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .footer__version {
+        font-size: 0.76rem;
+        color: var(--text-muted);
+        opacity: 0.85;
+      }
+
+      @keyframes flashIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
         }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
     </style>
-</head>
-<body class="page">
-    <div class="page__content">
-        {{if .FlashMessage}}
-        <div class="flash-message">
-            {{.FlashMessage}}
+  </head>
+  <body>
+    <div class="page">
+      <header class="masthead">
+        <img class="masthead__logo" src="/static/logo.png" alt="wol logo" />
+        <div class="masthead__text">
+          <div class="masthead__title">wol</div>
+          <div class="masthead__subtitle">Wake-on-LAN web interface</div>
         </div>
-        {{end}}
-        <h1 class="page__title">wol</h1>
-        <p class="page__subtitle">Wake-on-LAN web interface</p>
+      </header>
+
+      {{if .FlashMessage}}
+      <div class="flash" role="status">
+        <span class="flash__icon" aria-hidden="true">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />
+          </svg>
+        </span>
+        <span class="flash__text">{{.FlashMessage}}</span>
+      </div>
+      {{end}}
+
+      <main class="section">
         {{if .Machines}}
-            <h2 class="section__heading">Machines</h2>
-            <p class="section__subtitle">List of configured machines and their current status</p>
-            <ul class="machines">
-                {{range .Machines}}
-                <li class="machine" data-name="{{.Name}}">
-                    <div class="machine__info">
-                        <div class="machine__header">
-                            <div class="machine__status" data-status="unknown"></div>
-                            <div class="machine__name">{{.Name}}</div>
-                        </div>
-                        <div class="machine__mac">{{.Mac}}</div>
-                    </div>
-                    <form action="/wake" method="POST" style="margin: 0;">
-                        <input type="hidden" name="name" value="{{.Name}}">
-                        <button type="submit" class="machine__wake-button">Wake</button>
-                    </form>
-                </li>
-                {{end}}
-            </ul>
-        {{else}}
-            <div class="machines--empty">
-                <div class="machines--empty__icon">🖥️</div>
-                <p class="machines--empty__text">No machines configured</p>
-                <p class="machines--empty__help">
-                    Add machines to your configuration file to start using Wake-on-LAN. 
-                    Check the documentation for setup instructions.
-                </p>
-            </div>
-        {{end}}
-    </div>
-    <footer class="footer">
-        <div class="footer__links">
-            <a href="https://github.com/Trugamr/wol" class="footer__link" target="_blank" rel="noopener noreferrer">GitHub</a>
-            <a href="https://github.com/Trugamr/wol/issues" class="footer__link" target="_blank" rel="noopener noreferrer">Report Issue</a>
-            <a href="https://github.com/Trugamr/wol/blob/main/README.md" class="footer__link" target="_blank" rel="noopener noreferrer">Documentation</a>
+        <div class="section__head">
+          <h2 class="section__heading">Machines</h2>
+          <span class="section__count">{{len .Machines}} configured</span>
         </div>
-        <div class="footer__credit">Crafted with <span class="footer__ascii">❤︎</span> by <a href="https://github.com/Trugamr" class="footer__link" target="_blank" rel="noopener noreferrer">Trugamr</a></div>
-        <div class="footer__version">Version: {{.Version}} ({{.Commit}}) - Built at: {{.Date}}</div>
-    </footer>
+        <ul class="machines">
+          {{range .Machines}}
+          <li class="machine" data-name="{{.Name}}">
+            <div class="machine__info">
+              <div class="machine__name-row">
+                <span class="machine__status" data-status="unknown"></span
+                ><span class="machine__name">{{.Name}}</span>
+              </div>
+              <span class="machine__mac mono">{{.Mac}}</span>
+            </div>
+            <form class="wake-form" action="/wake" method="POST">
+              <input type="hidden" name="name" value="{{.Name}}" />
+              <button type="submit" class="wake" aria-label="Wake {{.Name}}">
+                Wake
+              </button>
+            </form>
+          </li>
+          {{end}}
+        </ul>
+        {{else}}
+        <div class="empty">
+          <span class="empty__icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2" y="4" width="20" height="13" rx="2.5" />
+              <path d="M8 21h8M12 17v4" />
+              <path d="m7 10 2.5 2.5L7 15" />
+            </svg>
+          </span>
+          <div class="empty__title">No machines configured</div>
+          <p class="empty__help">
+            Add machines to your configuration file to start using Wake-on-LAN.
+            Check the documentation for setup instructions.
+          </p>
+        </div>
+        {{end}}
+      </main>
+
+      <footer class="footer">
+        <nav class="footer__links">
+          <a
+            class="footer__link"
+            href="https://github.com/Trugamr/wol"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GitHub</a
+          >
+          <a
+            class="footer__link"
+            href="https://github.com/Trugamr/wol/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Report Issue</a
+          >
+          <a
+            class="footer__link"
+            href="https://github.com/Trugamr/wol/blob/main/README.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Documentation</a
+          >
+        </nav>
+        <div class="footer__version mono">
+          {{.Version}} ({{.Commit}}) · built {{.Date}}
+        </div>
+      </footer>
+    </div>
+
     <script>
-        const source = new EventSource('/status');
+      const source = new EventSource("/status");
 
-        source.onmessage = function(event) {
-            const statuses = JSON.parse(event.data);
+      source.onmessage = function (event) {
+        const statuses = JSON.parse(event.data);
 
-            // Get all machines on the page
-            const machines = document.querySelectorAll('.machine');
+        // Get all machines on the page
+        const machines = document.querySelectorAll(".machine");
 
-            // Iterate over machines and update their status
-            for(const machine of machines) {
-                if (machine.dataset.name in statuses) {
-                    const status = statuses[machine.dataset.name];
-                    const element = machine.querySelector('.machine__status');
-                    element.dataset.status = status;
-                }
-            }
+        // Iterate over machines and update their status
+        for (const machine of machines) {
+          if (machine.dataset.name in statuses) {
+            const status = statuses[machine.dataset.name];
+            const element = machine.querySelector(".machine__status");
+            element.dataset.status = status;
+          }
         }
+      };
 
-        // Cleanup EventSource when page is unloaded
-        window.addEventListener('unload', () => {
-            source.close();
-        });
+      // Cleanup EventSource when page is unloaded
+      window.addEventListener("unload", () => {
+        source.close();
+      });
     </script>
-</body>
+  </body>
 </html>
