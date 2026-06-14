@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/Trugamr/wol/compare/v0.2.0...v0.3.0) (2026-06-14)
+
+
+### Features
+
+* add scheduled wake-ups via cron ([#28](https://github.com/Trugamr/wol/issues/28)) ([1a724f5](https://github.com/Trugamr/wol/commit/1a724f5e9fac1a55788446fae19c67c3ae72f7bf))
+* refresh web interface with embedded logo and favicon ([#34](https://github.com/Trugamr/wol/issues/34)) ([c2db78b](https://github.com/Trugamr/wol/commit/c2db78b09c36a3165c621a19fa1acc4d383fda06))
+
+
+### Bug Fixes
+
+* preserve non-ASCII machine names in flash cookie ([#37](https://github.com/Trugamr/wol/issues/37)) ([561bcab](https://github.com/Trugamr/wol/commit/561bcabef85a45891fe68312b1205b5232ce09d0))
+
 ## [0.2.0](https://github.com/Trugamr/wol/compare/v0.1.0...v0.2.0) (2026-06-13)
 
 
