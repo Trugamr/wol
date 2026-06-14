@@ -111,13 +111,26 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Group schedules by their resolved machine name so the template can show a
+	// per-machine indicator. Keyed by the canonical machine name (what the card
+	// renders) so lookup matches regardless of how the schedule spelled it.
+	schedulesByMachine := make(map[string][]config.Schedule)
+	for _, sch := range s.cfg.Schedules {
+		m, err := s.cfg.MachineByName(sch.Machine)
+		if err != nil {
+			continue // unknown machine; already rejected at serve startup
+		}
+		schedulesByMachine[m.Name] = append(schedulesByMachine[m.Name], sch)
+	}
+
 	// Execute the template
 	data := map[string]interface{}{
-		"Machines":     s.cfg.Machines,
-		"Version":      version,
-		"Commit":       commit,
-		"Date":         date,
-		"FlashMessage": consumeFlashMessage(w, r), // Get flash message from cookie
+		"Machines":           s.cfg.Machines,
+		"SchedulesByMachine": schedulesByMachine,
+		"Version":            version,
+		"Commit":             commit,
+		"Date":               date,
+		"FlashMessage":       consumeFlashMessage(w, r), // Get flash message from cookie
 	}
 	err = index.Execute(w, data)
 	if err != nil {

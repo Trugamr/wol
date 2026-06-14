@@ -215,6 +215,11 @@
         flex-direction: column;
         gap: 0.35rem;
         min-width: 0;
+        /* Fill the card's height (cards in a row share the tallest one's height)
+           so the name/MAC stay anchored to the top instead of floating in the
+           vertical center when a sibling card is taller for its schedule chip.
+           The Wake button keeps the parent's center alignment. */
+        align-self: stretch;
       }
 
       .machine__name {
@@ -233,6 +238,50 @@
         font-size: 0.82rem;
         color: var(--text-muted);
         letter-spacing: 0.02em;
+      }
+
+      /* Schedule chips — shown only for machines with a cron wake-up. One chip
+         per schedule; they wrap if a machine has several. */
+      .machine__schedules {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.15rem;
+      }
+
+      .machine__schedule {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        max-width: 100%;
+        padding: 0.16rem 0.5rem;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+
+      .machine__schedule svg {
+        flex: none;
+        width: 12px;
+        height: 12px;
+      }
+
+      .machine__schedule .mono {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* The "+N" pill collapsing any schedules beyond the first; full list in
+         its title. Muted/outlined so it reads as a count, not another cron. */
+      .machine__schedule--more {
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px dashed var(--border);
+        cursor: default;
       }
 
       /* vertical-align:middle aligns the dot to the text's optical center (its x-height
@@ -427,6 +476,38 @@
                 ><span class="machine__name">{{.Name}}</span>
               </div>
               <span class="machine__mac mono">{{.Mac}}</span>
+              {{$scheds := index $.SchedulesByMachine .Name}}
+              {{if $scheds}}
+              {{$first := index $scheds 0}}
+              <div class="machine__schedules">
+                <span
+                  class="machine__schedule"
+                  {{if $first.Name}}title="{{$first.Name}}"{{end}}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                  <span class="mono">{{$first.Cron}}</span>
+                </span>
+                {{if gt (len $scheds) 1}}
+                {{$rest := slice $scheds 1}}
+                <span
+                  class="machine__schedule machine__schedule--more"
+                  title="{{range $i, $r := $rest}}{{if $i}}&#10;{{end}}{{if $r.Name}}{{$r.Name}}: {{end}}{{$r.Cron}}{{end}}"
+                  >+{{len $rest}}</span
+                >
+                {{end}}
+              </div>
+              {{end}}
             </div>
             <form class="wake-form" action="/wake" method="POST">
               <input type="hidden" name="name" value="{{.Name}}" />
