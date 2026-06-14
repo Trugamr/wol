@@ -37,6 +37,52 @@ func TestHandleIndexRendersMachines(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), "alpha")
 }
 
+func TestHandleIndexShowsScheduleChip(t *testing.T) {
+	cfg := &config.Config{
+		Machines: []config.Machine{
+			{Name: "scheduled", Mac: "01:02:03:04:05:06"},
+			{Name: "plain", Mac: "0a:0b:0c:0d:0e:0f"},
+		},
+		Schedules: []config.Schedule{{Machine: "scheduled", Cron: "0 2 * * 6"}},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	newServer(cfg, nil, nil).routes().ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	// The scheduled machine renders a chip with its cron expression...
+	assert.Contains(t, body, "0 2 * * 6")
+	// ...and there is exactly one chip (the unscheduled machine has none, and a
+	// single schedule produces no "+N" overflow pill). Match the rendered class
+	// attribute, not the bare name, which also appears in the <style> block.
+	assert.Equal(t, 1, strings.Count(body, `class="machine__schedule"`))
+	assert.NotContains(t, body, `class="machine__schedule machine__schedule--more"`)
+}
+
+func TestHandleIndexCollapsesExtraSchedules(t *testing.T) {
+	cfg := &config.Config{
+		Machines: []config.Machine{{Name: "media-server", Mac: "01:02:03:04:05:06"}},
+		Schedules: []config.Schedule{
+			{Machine: "media-server", Cron: "@daily"},
+			{Machine: "media-server", Cron: "@every 1m"},
+			{Machine: "media-server", Cron: "0 18 * * 1-5"},
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	newServer(cfg, nil, nil).routes().ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	// Only the first schedule is shown as a visible chip; the rest collapse into
+	// a "+2" overflow pill (their crons live in its title for hover).
+	assert.Equal(t, 1, strings.Count(body, `class="machine__schedule"`))
+	assert.Contains(t, body, `class="machine__schedule machine__schedule--more"`)
+	assert.Contains(t, body, "@daily")
+	assert.Contains(t, body, ">+2<")
+}
+
 func TestHandleWakeSuccess(t *testing.T) {
 	const macStr = "01:02:03:04:05:06"
 	cfg := &config.Config{

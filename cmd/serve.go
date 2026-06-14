@@ -41,6 +41,15 @@ var serveCmd = &cobra.Command{
 			log.Print("No config file found; using built-in defaults")
 		}
 
+		// Start cron wake-ups when configured; a misconfigured schedule
+		// (unknown machine or invalid cron) aborts serve before it listens.
+		if len(cfg.Schedules) > 0 {
+			sched, err := newScheduler(cfg, broadcastWake)
+			cobra.CheckErr(err)
+			sched.start()
+			log.Printf("Started %d scheduled wake-up(s)", len(cfg.Schedules))
+		}
+
 		handler := newServer(cfg, newProbingPinger(cfg.Ping.Privileged), broadcastWake).routes()
 
 		log.Printf("Listening on %s", cfg.Server.Listen)
@@ -102,13 +111,26 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Group schedules by their resolved machine name so the template can show a
+	// per-machine indicator. Keyed by the canonical machine name (what the card
+	// renders) so lookup matches regardless of how the schedule spelled it.
+	schedulesByMachine := make(map[string][]config.Schedule)
+	for _, sch := range s.cfg.Schedules {
+		m, err := s.cfg.MachineByName(sch.Machine)
+		if err != nil {
+			continue // unknown machine; already rejected at serve startup
+		}
+		schedulesByMachine[m.Name] = append(schedulesByMachine[m.Name], sch)
+	}
+
 	// Execute the template
 	data := map[string]interface{}{
-		"Machines":     s.cfg.Machines,
-		"Version":      version,
-		"Commit":       commit,
-		"Date":         date,
-		"FlashMessage": consumeFlashMessage(w, r), // Get flash message from cookie
+		"Machines":           s.cfg.Machines,
+		"SchedulesByMachine": schedulesByMachine,
+		"Version":            version,
+		"Commit":             commit,
+		"Date":               date,
+		"FlashMessage":       consumeFlashMessage(w, r), // Get flash message from cookie
 	}
 	err = index.Execute(w, data)
 	if err != nil {

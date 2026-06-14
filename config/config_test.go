@@ -323,3 +323,44 @@ func TestLoadExplicitMissing(t *testing.T) {
 	err := c.Load(missing)
 	require.Error(t, err)
 }
+
+func TestLoadSchedules(t *testing.T) {
+	t.Setenv(configEnvVar, "")
+
+	file := writeConfig(t, `
+machines:
+  - name: nas
+    mac: "01:02:03:04:05:06"
+schedules:
+  - name: weekend-backup
+    machine: nas
+    cron: "0 2 * * 6"
+  - machine: nas
+    cron: "@daily"
+`)
+
+	c := NewConfig()
+	_, err := c.load([]string{file}, true)
+	require.NoError(t, err)
+
+	require.Len(t, c.Schedules, 2)
+	assert.Equal(t, Schedule{Name: "weekend-backup", Machine: "nas", Cron: "0 2 * * 6"}, c.Schedules[0])
+	// The optional name may be omitted.
+	assert.Equal(t, Schedule{Machine: "nas", Cron: "@daily"}, c.Schedules[1])
+}
+
+func TestLoadSchedulesAbsent(t *testing.T) {
+	t.Setenv(configEnvVar, "")
+
+	// A config without a schedules section leaves Schedules empty (disabled).
+	file := writeConfig(t, `
+machines:
+  - name: nas
+    mac: "01:02:03:04:05:06"
+`)
+
+	c := NewConfig()
+	_, err := c.load([]string{file}, true)
+	require.NoError(t, err)
+	assert.Empty(t, c.Schedules)
+}
