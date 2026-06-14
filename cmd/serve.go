@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -140,16 +141,17 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// setFlashMessage sets a flash message in a cookie
+// setFlashMessage stores a flash message in a cookie, URL-encoded so non-ASCII
+// bytes survive net/http's cookie-value validation rather than being dropped.
 func setFlashMessage(w http.ResponseWriter, message string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:  "flash",
-		Value: message,
+		Value: url.QueryEscape(message),
 		Path:  "/",
 	})
 }
 
-// consumeFlashMessage retrieves and clears the flash message from the request
+// consumeFlashMessage retrieves, decodes, and clears the flash message cookie.
 func consumeFlashMessage(w http.ResponseWriter, r *http.Request) string {
 	cookie, err := r.Cookie("flash")
 	if err == nil {
@@ -161,6 +163,10 @@ func consumeFlashMessage(w http.ResponseWriter, r *http.Request) string {
 			Expires: time.Now().Add(-1 * time.Hour),
 		})
 
+		// Fall back to the raw value if decoding fails.
+		if message, err := url.QueryUnescape(cookie.Value); err == nil {
+			return message
+		}
 		return cookie.Value
 	}
 	return ""

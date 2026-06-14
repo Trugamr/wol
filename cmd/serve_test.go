@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -131,6 +132,37 @@ func TestHandleWakeSuccess(t *testing.T) {
 	}
 	require.NotNil(t, flash)
 	assert.Contains(t, flash.Value, "alpha")
+}
+
+// Non-ASCII machine names must survive the flash cookie round-trip (issue #35).
+func TestHandleWakeNonASCIIName(t *testing.T) {
+	const machineName = "客厅电脑"
+	cfg := &config.Config{
+		Broadcast: config.Broadcast{Address: "255.255.255.255", Port: 9},
+		Machines:  []config.Machine{{Name: machineName, Mac: "01:02:03:04:05:06"}},
+	}
+
+	wake := func(mac net.HardwareAddr, addr string) error { return nil }
+	body := "name=" + url.QueryEscape(machineName)
+	req := httptest.NewRequest(http.MethodPost, "/wake", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	newServer(cfg, nil, wake).routes().ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+
+	var flash *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "flash" {
+			flash = c
+		}
+	}
+	require.NotNil(t, flash)
+
+	// Decoded value must preserve the non-ASCII name (no bytes dropped).
+	got, err := url.QueryUnescape(flash.Value)
+	require.NoError(t, err)
+	assert.Contains(t, got, machineName)
 }
 
 func TestHandleWakeMachineNotFound(t *testing.T) {
