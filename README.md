@@ -7,7 +7,7 @@
 A CLI tool to send Wake-On-LAN (WOL) magic packets to wake up devices on your
 network. Features both CLI commands and a web interface.
 
-<img src="assets/images/web.png" alt="Web Interface" />
+<img src=".github/images/web.png" alt="Web Interface" />
 
 ## Features
 

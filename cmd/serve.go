@@ -22,6 +22,9 @@ import (
 //go:embed templates/*
 var templates embed.FS
 
+//go:embed static
+var staticFiles embed.FS
+
 func init() {
 	rootCmd.AddCommand(serveCmd)
 }
@@ -81,6 +84,12 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("POST /wake", s.handleWake)
 	mux.HandleFunc("GET /status", s.handleStatus)
+
+	// Serve embedded static assets (favicon, logo) under /static/. The embed
+	// keeps them under a "static/" prefix that matches the URL prefix, so the
+	// file server maps requests straight to the embedded paths.
+	mux.Handle("GET /static/", http.FileServerFS(staticFiles))
+
 	return mux
 }
 
